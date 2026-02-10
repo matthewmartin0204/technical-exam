@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/generic-pool": "^3.8.3",
     "ts-jest": "^27.0.3",
     "typescript": "^4.3.5"
   },
@@ -19,6 +20,7 @@
     "@types/jest": "^27.0.6",
     "basic-ftp": "^4.6.6",
     "express": "^4.17.1",
+    "generic-pool": "^3.9.0",
     "jest": "^27.0.6",
     "nodemon": "^2.0.12",
     "pino": "^10.3.1",

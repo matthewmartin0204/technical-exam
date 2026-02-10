@@ -1,31 +1,23 @@
-import { Client } from "basic-ftp";
 import { createLogger } from "../main/log";
+import { withFtpClient } from "../services/ftpPool";
 
 const log = createLogger("amocWarnings");
 
 export async function getAllWarns() {
-  const client = new Client();
-  // client.ftp.verbose = true;
   try {
-    await client.access({
-      host: "ftp.bom.gov.au",
-      secure: false,
+    const warns = await withFtpClient(async ({ client }) => {
+      const files = await client.list();
+      return getNames(files);
     });
-
-    await client.cd("/anon/gen/fwo/");
-    const files = await client.list();
-
-   const warns = await getNames(files)
 
     return warns;
   } catch (err) {
     log.error({ err }, "Failed to fetch warnings from FTP");
+    throw err;
   }
-
-  client.close();
 }
 
-export const getNames = async (warnings:any)=>{
+export const getNames = async (warnings: any) => {
   let warns: any = [];
   
   for (var file in warnings) {
