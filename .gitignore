@@ -1,4 +1,34 @@
+# Dependencies
 node_modules/
+
+# Build output
+dist/
+*.js.map
+
+# Downloaded FTP files (should not be committed)
 /*.xml
 /*.txt
+
+# Logs
 *.log
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# CDK Infrastructure
+infra/*.js
+!infra/jest.config.js
+infra/*.d.ts
+infra/.cdk.staging
+infra/cdk.out/

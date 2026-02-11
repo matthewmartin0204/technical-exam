@@ -75,10 +75,10 @@ export function calculateTtlFromExpiry(expiryTimeIso: string): number {
  * Cached warning data structure
  */
 export interface CachedWarning {
-  productType: string;
+  productType?: string;
   service: string;
-  start: string;
-  expiry: string;
+  start?: string;
+  expiry?: string;
   text: string;
   cachedAt: string;
 }
@@ -115,7 +115,9 @@ export async function setCachedWarning(
   try {
     const client = getRedisClient();
     const key = `${CACHE_PREFIX}${warningId}`;
-    const ttl = calculateTtlFromExpiry(warning.expiry);
+    const ttl = warning.expiry 
+      ? calculateTtlFromExpiry(warning.expiry) 
+      : DEFAULT_TTL_SECONDS;
 
     await client.setex(key, ttl, JSON.stringify(warning));
 

@@ -1,0 +1,47 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+
+# Development files
+*.log
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Testing
+coverage
+*.spec.ts
+*.test.ts
+jest.config.js
+
+# Infrastructure
+infra
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Bruno tests
+bruno-tests
+
+# Documentation
+README.md
+*.md
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
