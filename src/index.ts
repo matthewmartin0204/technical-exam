@@ -5,8 +5,19 @@ import { WarningCollector, WarningTextCollector } from "./floods/WarningCollecto
 import { getAllWarns } from "./floods/amocWarnings";
 import { logger, createLogger } from "./main/log";
 import { closeFtpPool, getPoolStats } from "./services/ftpPool";
+import {
+  getCachedWarning,
+  setCachedWarning,
+  getCacheStats,
+  closeCache,
+  CachedWarning,
+  getRedisClient,
+} from "./services/cache";
 
 const log = createLogger("server");
+
+// Initialize Redis connection early
+getRedisClient();
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -35,19 +46,38 @@ app.get("/", async (req, res) => {
 app.get("/warning/:id", async (req, res) => {
   const xmlid = req.params.id;
   try {
-    const downloader = new WarningCollector();
+    // Check cache first
+    const cached = await getCachedWarning(xmlid);
+    if (cached) {
+      log.info({ xmlid, cached: true }, "Serving cached warning");
+      res.send(cached);
+      return;
+    }
 
+    // Cache miss - fetch from FTP
+    const downloader = new WarningCollector();
     const warning = await downloader.downloadWarning(xmlid);
     if (!warning) {
       res.status(404).send({ error: "Warning not found" });
       return;
     }
-    const warningParser = new FloodWarningParser(warning);
 
+    const warningParser = new FloodWarningParser(warning);
     const textDownloader = new WarningTextCollector();
     const text = await textDownloader.downloadWarning(xmlid);
 
-    res.send({ ...(await warningParser.getWarning()), text: text || "" });
+    const warningData = await warningParser.getWarning();
+    const response: CachedWarning = {
+      ...warningData,
+      text: text || "",
+      cachedAt: new Date().toISOString(),
+    };
+
+    // Cache the response using expiry time as TTL
+    await setCachedWarning(xmlid, response);
+
+    log.info({ xmlid, cached: false }, "Serving fresh warning");
+    res.send(response);
   } catch (error) {
     res.send(ERRORMESSAGE);
     log.error({ error, xmlid }, "Failed to fetch warning");
@@ -55,12 +85,14 @@ app.get("/warning/:id", async (req, res) => {
 });
 
 // Health check endpoint
-app.get("/health", (req, res) => {
+app.get("/health", async (req, res) => {
   const poolStats = getPoolStats();
+  const cacheStats = await getCacheStats();
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
     ftpPool: poolStats,
+    cache: cacheStats,
   });
 });
 
@@ -75,7 +107,10 @@ async function shutdown(signal: string) {
   server.close(async () => {
     log.info("HTTP server closed");
     
-    await closeFtpPool();
+    await Promise.all([
+      closeFtpPool(),
+      closeCache(),
+    ]);
     
     log.info("Graceful shutdown complete");
     process.exit(0);
