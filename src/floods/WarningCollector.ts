@@ -1,65 +1,64 @@
-import { Client } from "basic-ftp";
-import fs from "fs";
-import { readWarningData } from "../parser/ReadWarningData";
+import { Writable } from "stream";
 import { createLogger } from "../main/log";
+import { withFtpClient } from "../services/ftpPool";
 
 const log = createLogger("WarningCollector");
 
-export class WarningColletor {
-  async downloadWarning(amocRegion:string) {
-    const client = new Client();
-    client.ftp.verbose = true;
-    
-    await client.access({
-      host: "ftp.bom.gov.au",
-      secure: false,
-    });
+/**
+ * Collects data by streaming to a buffer in memory
+ */
+class MemoryWritable extends Writable {
+  private chunks: Buffer[] = [];
 
-    await client.cd("/anon/gen/fwo/");
+  _write(chunk: Buffer, _encoding: string, callback: (error?: Error | null) => void): void {
+    this.chunks.push(chunk);
+    callback();
+  }
 
-    const files = await client.list();
+  getBuffer(): Buffer {
+    return Buffer.concat(this.chunks);
+  }
 
-    for (let file=0; file<files.length; file++) {
-      if (files[file].name.endsWith(".amoc.xml") && `${amocRegion}.amoc.xml` == files[file].name) {
-        let fileData = files[file];
-        if(fileData.isSymbolicLink === false && fileData.isDirectory == false) {
-          await client.download(`./${amocRegion}.xml`, files[file].name);
-        }
-      }
-    }
-
-    client.close();
-    const data = readWarningData(amocRegion);
-    
-    return data;
+  getString(encoding: BufferEncoding = "utf-8"): string {
+    return this.getBuffer().toString(encoding);
   }
 }
 
-export class WarningTextCollector extends WarningColletor {
-  async downloadWarning(key: string) {
-    const client = new Client();
-    client.ftp.verbose = true;
-    let warningText = "";
+export class WarningCollector {
+  async downloadWarning(amocRegion: string): Promise<string | null> {
+    return withFtpClient(async ({ client }) => {
+      const files = await client.list();
+      const targetFile = `${amocRegion}.amoc.xml`;
+
+      const fileData = files.find(
+        (f) => f.name === targetFile && !f.isSymbolicLink && !f.isDirectory
+      );
+
+      if (!fileData) {
+        log.warn({ amocRegion }, "Warning file not found");
+        return null;
+      }
+
+      // Stream directly to memory instead of disk
+      const memoryStream = new MemoryWritable();
+      await client.downloadTo(memoryStream, targetFile);
+
+      return memoryStream.getString();
+    });
+  }
+}
+
+export class WarningTextCollector {
+  async downloadWarning(key: string): Promise<string> {
     try {
-      await client.access({
-        host: "ftp.bom.gov.au",
-        secure: false,
-      });
-
-      await client.cd("/anon/gen/fwo/");
-
-      await client.download(`./${key}.txt`, key + ".txt");
-
-      warningText = fs.readFileSync(`./${key}.txt`, {
-        encoding: "utf-8",
+      return await withFtpClient(async ({ client }) => {
+        const memoryStream = new MemoryWritable();
+        await client.downloadTo(memoryStream, `${key}.txt`);
+        return memoryStream.getString();
       });
     } catch (err) {
-      log.warn({ key }, "Warning text file not found");
+      log.warn({ key, err }, "Warning text file not found");
       return "";
     }
-
-    client.close();
-
-    return warningText;
   }
 }
