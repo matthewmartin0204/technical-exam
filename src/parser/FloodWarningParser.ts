@@ -2,140 +2,119 @@ import { WarningTextCollector } from "../floods/WarningCollector";
 import { parseXmlString } from "./parseXmlString";
 
 export class FloodWarningParser {
-  constructor(private xmlString: any) {}
+  private parsedObj: any = null;
+
+  constructor(private xmlString: string) {}
+
+  /**
+   * Parse XML once and cache the result
+   */
+  private async getParsedObject(): Promise<any> {
+    if (!this.parsedObj) {
+      this.parsedObj = await new Promise((resolve) => {
+        parseXmlString(this.xmlString, (data) => {
+          resolve(data);
+        });
+      });
+    }
+    return this.parsedObj;
+  }
 
   async getWarning() {
-    const obj: any = await new Promise((resolve, reject) => {
-      parseXmlString(this.xmlString, (data) => {
-        resolve(data);
-      });
-    });
+    const obj = await this.getParsedObject();
 
-    let productType = parseProductType(obj);
-    let service = getService(obj);
+    const productType = parseProductType(obj);
+    const service = getService(obj);
 
     return {
       productType,
       service,
-      start: await this.getIssueTime(),
-      expiry: await this.getEndTime(),
+      start: this.getIssueTime(obj),
+      expiry: this.getEndTime(obj),
     };
   }
-  async getIssueTime() {
-    const obj: any = await new Promise((resolve, reject) => {
-      parseXmlString(this.xmlString, (data) => {
-        resolve(data);
-      });
-    });
 
-    let issuetime = (obj.amoc["issue-time-utc"] || [])[0];
-
-    return issuetime;
+  private getIssueTime(obj: any): string | undefined {
+    return (obj.amoc["issue-time-utc"] || [])[0];
   }
 
-  async getEndTime() {
-    const obj: any = await new Promise((resolve, reject) => {
-      parseXmlString(this.xmlString, (data) => {
-        resolve(data);
-      });
-    });
-
-    let issuetime = (obj.amoc["expiry-time"] || [])[0];
-
-    return issuetime;
+  private getEndTime(obj: any): string | undefined {
+    return (obj.amoc["expiry-time"] || [])[0];
   }
 
   async downloadwarningText(): Promise<string> {
-    const obj: any = await new Promise((resolve, reject) => {
-      parseXmlString(this.xmlString, (data) => {
-        resolve(data);
-      });
-    });
+    const obj = await this.getParsedObject();
     const downloader = new WarningTextCollector();
-
     const warningText = await downloader.downloadWarning(obj.amoc.identifier[0]);
-
     return warningText;
   }
 }
-function getService(obj: any) {
+
+function getService(obj: any): string {
   let service = (obj.amoc["service"] || [])[0];
 
   switch (service) {
     case "COM":
-      service = "Commercial Services";
-      break;
+      return "Commercial Services";
     case "HFW":
-      service = "Flood Warning Service";
-      break;
+      return "Flood Warning Service";
     case "TWS":
-      service = "Tsunami Warning Services";
-      break;
+      return "Tsunami Warning Services";
     case "WAP":
-      service = "Analysis and Prediction";
-      break;
+      return "Analysis and Prediction";
     case "WSA":
-      service = "Aviation Weather Services";
-      break;
+      return "Aviation Weather Services";
     case "WSD":
-      service = "Defence Weather Services";
-      break;
+      return "Defence Weather Services";
     case "WSF":
-      service = "Fire Weather Services";
-      break;
+      return "Fire Weather Services";
     case "WSM":
-      service = "Marine Weather Services";
-      break;
+      return "Marine Weather Services";
     case "WSP":
-      service = "Public Weather Services";
-      break;
+      return "Public Weather Services";
     case "WSS":
-      service = "Cost Recovery Services";
-      break;
+      return "Cost Recovery Services";
     case "WSW":
-      service = "Disaster Mitigation";
-      break;
+      return "Disaster Mitigation";
+    default:
+      return service;
   }
-  return service;
 }
 
-function parseProductType(obj: any) {
-  let productType;
-
-  if(obj && obj.amoc["product-type"]) {
-    productType = (obj.amoc["product-type"] || [])[0]
-  }
+function parseProductType(obj: any): string | undefined {
+  const productType = obj?.amoc?.["product-type"]?.[0];
 
   switch (productType) {
     case "A":
-      productType = "Advice";
+      return "Advice";
     case "B":
-      productType = "Bundle";
+      return "Bundle";
     case "C":
-      productType = "Climate";
+      return "Climate";
     case "D":
-      productType = "Metadata";
+      return "Metadata";
     case "E":
-      productType = "Analysis";
+      return "Analysis";
     case "F":
-      productType = "Forecast";
+      return "Forecast";
     case "M":
-      productType = "Numerical Weather Prediction";
+      return "Numerical Weather Prediction";
     case "O":
-      productType = "Observation";
+      return "Observation";
     case "Q":
-      productType = "Reference";
+      return "Reference";
     case "R":
-      productType = "Radar";
+      return "Radar";
     case "S":
-      productType = "Special";
+      return "Special";
     case "T":
-      productType = "Satellite";
+      return "Satellite";
     case "W":
-      productType = "Warning";
+      return "Warning";
     case "X":
-      productType = "Mixed";
+      return "Mixed";
+    default:
+      return productType;
   }
-  return productType;
 }
 
