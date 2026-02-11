@@ -16,7 +16,8 @@ class MemoryWritable extends Writable {
   }
 
   getBuffer(): Buffer {
-    return Buffer.concat(this.chunks);
+    // Type assertion needed for TypeScript 5.9+ compatibility with Buffer.concat
+    return Buffer.concat(this.chunks as unknown as Uint8Array[]);
   }
 
   getString(encoding: BufferEncoding = "utf-8"): string {
