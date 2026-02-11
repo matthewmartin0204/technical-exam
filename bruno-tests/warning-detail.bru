@@ -1,0 +1,23 @@
+meta {
+  name: Warning Detail
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:3000/warning/IDN11024
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response should be an object with text property", function() {
+    const body = res.getBody();
+    expect(typeof body).to.equal('object');
+    expect(body).to.have.property('text');
+  });
+}

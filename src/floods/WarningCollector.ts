@@ -1,6 +1,9 @@
 import { Client } from "basic-ftp";
 import fs from "fs";
 import { readWarningData } from "../parser/ReadWarningData";
+import { createLogger } from "../main/log";
+
+const log = createLogger("WarningCollector");
 
 export class WarningColletor {
   async downloadWarning(amocRegion:string) {
@@ -51,7 +54,7 @@ export class WarningTextCollector extends WarningColletor {
         encoding: "utf-8",
       });
     } catch (err) {
-      console.log(key + " file not found");
+      log.warn({ key }, "Warning text file not found");
       return "";
     }
 

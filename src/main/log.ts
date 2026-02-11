@@ -1,28 +1,34 @@
-import fs from "fs";
+import pino from "pino";
 
-const stdLogger = console.log;
-const stdError = console.error
-const logFile = fs.createWriteStream("logs.log", { flags: "a" });
+const isProduction = process.env.NODE_ENV === "production";
 
-class Logger  {
+// Create logger with appropriate configuration
+export const logger = pino({
+  level: process.env.LOG_LEVEL || (isProduction ? "info" : "debug"),
+  
+  // Pretty print in development, JSON in production
+  transport: isProduction
+    ? undefined
+    : {
+        target: "pino/file",
+        options: { destination: 1 }, // stdout
+      },
 
-  constructor() {
-  }
+  // Add service metadata
+  base: {
+    service: "bom-warnings-api",
+    env: process.env.NODE_ENV || "development",
+  },
 
-  log(...args:any[]) {
-    stdLogger(...args);
-    logFile.write(JSON.stringify(args));
-    logFile.write("\n");
-  }
-  error(...args:any[]) {
-    stdError(...args);
-    logFile.write(JSON.stringify(args));
-    logFile.write("\n");
-  }
-}
+  // ISO timestamps for production, human-readable for dev
+  timestamp: pino.stdTimeFunctions.isoTime,
 
-const logger = new Logger();
+  // Redact sensitive fields if needed
+  redact: ["req.headers.authorization", "password"],
+});
 
-if (process.env.NODE_ENV == "production") {
-  console.log = logger.log; console.error = logger.error;
-}
+// Create child loggers for different modules
+export const createLogger = (module: string) => logger.child({ module });
+
+// Export default logger
+export default logger;
